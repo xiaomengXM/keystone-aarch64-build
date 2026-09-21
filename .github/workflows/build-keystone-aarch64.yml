@@ -24,6 +24,7 @@ jobs:
 
       - name: Build inside arm64 ubuntu container
         run: |
+          mkdir -p out
           docker run --rm --platform linux/arm64 \
             -v "${{ github.workspace }}/keystone":/src \
             -v "${{ github.workspace }}/out":/out \
@@ -34,7 +35,6 @@ jobs:
               apt-get install -y build-essential cmake python3 python3-pip python3-dev git
               pip3 install --break-system-packages wheel setuptools
               cd /src
-              # ---- C library ----
               mkdir -p build && cd build
               cmake -DCMAKE_BUILD_TYPE=Release \
                     -DBUILD_LIBS_ONLY=1 \
@@ -42,38 +42,23 @@ jobs:
                     -DCMAKE_INSTALL_PREFIX=/out/keystone-dist ..
               make -j4
               make install
-              cd /src
-              # ---- python binding wheel ----
-              cd bindings/python
+              cd /src/bindings/python
               python3 setup.py bdist_wheel
               cp dist/*.whl /out/ || true
-              echo "=== BUILD OK ==="
+              echo BUILD_OK
               ls -lh /out
             '
 
-      - name: Package artifacts
-        run: |
-          cd "${{ github.workspace }}/out"
-          tar -czf ../keystone-aarch64-dist.tar.gz keystone-dist 2>/dev/null || true
-          ls -lh "${{ github.workspace }}"
-
-      - name: Upload dist (C lib + headers)
+      - name: Upload dist
         uses: actions/upload-artifact@v4
         with:
           name: keystone-aarch64-dist
           path: out/keystone-dist
           if-no-files-found: warn
 
-      - name: Upload python wheel
+      - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
           name: keystone-aarch64-wheel
           path: out/*.whl
-          if-no-files-found: warn
-
-      - name: Upload tarball
-        uses: actions/upload-artifact@v4
-        with:
-          name: keystone-aarch64-tarball
-          path: keystone-aarch64-dist.tar.gz
           if-no-files-found: warn
