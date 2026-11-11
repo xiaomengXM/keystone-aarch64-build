@@ -44,7 +44,9 @@ jobs:
           python3 -m venv /tmp/venv
           . /tmp/venv/bin/activate
           pip install -q --upgrade pip wheel setuptools
-          python3 setup.py bdist_wheel
+          # 必须显式指定 plat-name：默认会打成 manylinux1_aarch64，而 manylinux1 对 aarch64 不合法，
+          # 新版 pip 会报 "is not a supported wheel on this platform"
+          python3 setup.py bdist_wheel --plat-name manylinux2014_aarch64
           cp dist/*.whl "${{ github.workspace }}/out/" || true
           ls -lh "${{ github.workspace }}/out/"
 
@@ -53,6 +55,10 @@ jobs:
           . /tmp/venv/bin/activate
           pip install -q "${{ github.workspace }}"/out/*.whl
           python3 -c "import keystone as ks; a=ks.Ks(ks.KS_ARCH_ARM64, ks.KS_MODE_LITTLE_ENDIAN); e=bytes(a.asm('nop')[0]).hex(); assert e=='1f2003d5', e; x=ks.Ks(ks.KS_ARCH_X86, ks.KS_MODE_64); assert bytes(x.asm('ret')[0]).hex()=='c3'; r=ks.Ks(ks.KS_ARCH_ARM, ks.KS_MODE_ARM); assert bytes(r.asm('add r0, r1, r2')[0]).hex()=='020081e0'; print('keystone', ks.__version__, 'OK arm64 nop =', e)"
+          # 再验一遍"直接解包 + PYTHONPATH"路径，避免 pip 的 wheel tag 检查掩盖内容问题
+          rm -rf /tmp/kx && mkdir -p /tmp/kx
+          python3 -m zipfile -e "${{ github.workspace }}"/out/*.whl /tmp/kx
+          PYTHONPATH=/tmp/kx python3 -c "import keystone as ks; print('unpacked import OK', ks.__version__)"
 
       - name: Upload dist
         uses: actions/upload-artifact@v4
